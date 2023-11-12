@@ -1,0 +1,31 @@
+Recorded saved variable values:
+first_target_length_input: 1214
+rsi_lower_threshold: 16
+rsi_period: 4931
+rsi_upper_threshold: 49
+st_multiplier: 36.3
+st_period: 896
+sl_multiplier: 1.1
+sl_period: 920
+short_target_multiple: 0.00103
+long_target_multiple: 0.00158
+short_entry_multiple: 0.00698
+long_entry_multiple: 0.00016
+will_frac_period: 4
+testing_stage: 7
+saved_objective_value: 0.0326245
+
+Top trial information from the last study:
+
+Objective values:
+Objective 1: 0.0326245
+Objective 2: 306.0
+
+Constraint values:
+Constraint 1: -0.012157530194008542
+Constraint 2: -655.8124885384193
+Constraint 3: -6.0
+Constraint 4: -0.03262445754599527
+
+
+

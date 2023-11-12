@@ -1,0 +1,57 @@
+Recorded saved variable values:
+first_target_length_input: 41
+rsi_lower_threshold: 62
+rsi_period: 7
+rsi_upper_threshold: 77
+sl_multiplier: 4.6
+sl_period: 159
+short_target_multiple: 0.00014
+long_target_multiple: 0.00000
+short_entry_multiple: 0.00001
+long_entry_multiple: 0.00005
+will_frac_period: 2
+testing_stage: 6
+saved_objective_value: 0.0170128
+
+Top trial information from the last study:
+
+Objective values:
+Objective 1: 0.0170128
+Objective 2: 234.0
+Objective 3: 233.056429
+
+Constraint values:
+Constraint 1: -0.014649184898989791
+Constraint 2: -6.94357098381073
+Constraint 3: -34.0
+Constraint 4: -0.017012751675510057
+
+2023-07-03 00:12	2023-10-06 21:00
+
+Recorded saved variable values:
+first_target_length_input: 73
+rsi_lower_threshold: 55
+rsi_period: 7
+rsi_upper_threshold: 77
+sl_multiplier: 4.2
+sl_period: 177
+short_target_multiple: 5e-05
+long_target_multiple: 5e-05
+short_entry_multiple: 5e-05
+long_entry_multiple: 5e-05
+will_frac_period: 2
+testing_stage: 28
+saved_objective_value: 0.0131471
+
+Top trial information from the last study:
+
+Objective values:
+Objective 1: 0.0131471
+Objective 2: 239.0
+Objective 3: 236.7457853
+
+Constraint values:
+Constraint 1: -0.013705413676972405
+Constraint 2: -3.2542147293700054
+Constraint 3: -39.0
+Constraint 4: -0.013147093336009372

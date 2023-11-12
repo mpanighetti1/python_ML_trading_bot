@@ -1,0 +1,71 @@
+Recorded saved variable values:
+first_target_length_input: 583
+rsi_entry_lower_threshold: 33
+rsi_exit_lower_threshold: 29
+rsi_period: 20
+rsi_entry_upper_threshold: 33
+rsi_exit_upper_threshold: 71
+sl_multiplier: 80
+sl_period: 1972
+ma_fast_period: 47
+ma_mid_period: 63
+ma_slow_period: 321
+short_target_multiple: 0.0
+long_target_multiple: 0.00294
+short_entry_multiple: 0.0
+long_entry_multiple: 0.00125
+will_frac_period: 13
+testing_stage: 10
+saved_objective_value: 0.006725137887284776
+
+Top trial information from the last study:
+
+Objective values:
+Objective 1: 0.006725137887284776
+Objective 2: 400.0
+Objective 3: 115.32427536231884
+
+Constraint values:
+Constraint 1: 0.008891589876397824
+Constraint 2: -484.6757246376811
+Constraint 3: 0.0
+Constraint 4: -0.006725137887284776
+
+2023-04-18 23:54	2023-10-31 18:00
+
+Without runtests_3 & Pre-Fixed:
+
+Recorded saved variable values:
+first_target_length_input: 350
+rsi_entry_lower_threshold: 33
+rsi_exit_lower_threshold: 29
+rsi_period: 21
+rsi_entry_upper_threshold: 32
+rsi_exit_upper_threshold: 71
+sl_multiplier: 80
+sl_period: 1000
+ma_fast_period: 47
+ma_mid_period: 63
+ma_slow_period: 321
+short_target_multiple: 0.0
+long_target_multiple: 0.0
+short_entry_multiple: 0.0
+long_entry_multiple: 0.0
+will_frac_period: 13
+testing_stage: 17
+saved_objective_value: -0.0020150799974607554
+
+Top trial information from the last study:
+
+Objective values:
+Objective 1: -0.0020150799974607554
+Objective 2: 408.0
+Objective 3: 115.67694382888524
+
+Constraint values:
+Constraint 1: 0.01361861094361905
+Constraint 2: -484.3230561711148
+Constraint 3: -8.0
+Constraint 4: 0.0020150799974607554
+
+2023-04-18 23:54	2023-10-31 18:00
