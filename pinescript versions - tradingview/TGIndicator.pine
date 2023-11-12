@@ -1,0 +1,159 @@
+//@version=5
+//indicator(title, shorttitle, overlay, format, precision, scale, max_bars_back, timeframe, timeframe_gaps, explicit_plot_zorder, max_lines_count, max_labels_count, max_boxes_count)
+indicator("Trueglory Inc", "TG Inc", true, max_boxes_count=200, max_bars_back=501)
+
+///////////// START OF GLOBALS ////////////////////////////
+
+color redColor  = input(#FF0000, "Red Color")
+color greenColor  = input(#0FFF00, "Green Color")
+color yellowColor  = input(#FFF500, "Yellow Color")
+color blueColor  = input(#48F0ED, "Blue Color")
+
+///////////// START OF RSI CANDLES ////////////////////////
+
+bar_color = input(true, "Show Colored Candles")
+
+len = input.int(7, minval=1, title="Length")
+len1 = input.float(50, minval=1, title="UpLevel")
+len2 = input.float(50, minval=1, title="DownLevel")
+
+day_src = request.security(syminfo.tickerid, '1D', close[1], barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+day_rsi = request.security(syminfo.tickerid, '1D', ta.rsi(day_src, len), lookahead = barmerge.lookahead_on)
+day_isup() => day_rsi >= len1
+day_isdown() => day_rsi <= len2
+day_isup = (day_isup() ? 1 : 0)
+day_isdown = (day_isdown() ? 1 : 0)
+
+week_src = request.security(syminfo.tickerid, '1W', close[1], barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+week_rsi = request.security(syminfo.tickerid, '1W', ta.rsi(week_src, len), lookahead = barmerge.lookahead_on)
+week_isup() => week_rsi >= len1
+week_isdown() => week_rsi <= len2
+week_isup = (week_isup() ? 1 : 0)
+week_isdown = (week_isdown() ? 1 : 0)
+
+month_src = request.security(syminfo.tickerid, '1M', close[1], barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+month_rsi = request.security(syminfo.tickerid, '1M', ta.rsi(month_src, len), lookahead = barmerge.lookahead_on)
+month_isup() => month_rsi >= len1
+month_isdown() => month_rsi <= len2
+month_isup = (month_isup() ? 1 : 0)
+month_isdown = (month_isdown() ? 1 : 0)
+
+// HEIKIN ASHI //
+
+// Figure Out Length Of 50 Based On Timeframe Under 8 Hours
+resolution_multiplier_8H = (timeframe.multiplier / 480)
+adjusted_length_8H = math.round(50 / resolution_multiplier_8H)
+
+// Figure Out Length Of 50 Based On Timeframe Under 4 Hours
+resolution_multiplier_4H = (timeframe.multiplier / 270)
+adjusted_length_4H = math.round(50 / resolution_multiplier_4H)
+
+M15_HAOpen = request.security(ticker.heikinashi(syminfo.tickerid), '15', open[1])
+M15_HAClose = request.security(ticker.heikinashi(syminfo.tickerid), '15', close[1])
+// Last 15Min HA Candle Is Up or Down? Up = 1, Down = 0. Close Should Be Higher Than Open.
+M15_HA_isup = M15_HAOpen <= M15_HAClose ? 1 : 0
+M15_HA_isdown = M15_HAOpen >= M15_HAClose ? 1 : 0
+
+prev_M15_HAOpen = request.security(ticker.heikinashi(syminfo.tickerid), '15', open[2])
+prev_M15_HAClose = request.security(ticker.heikinashi(syminfo.tickerid), '15', close[2])
+// Last 15Min HA Candle Is Up or Down? Up = 1, Down = 0. Close Should Be Higher Than Open.
+prev_M15_HA_isup = prev_M15_HAOpen <= prev_M15_HAClose ? 1 : 0
+prev_M15_HA_isdown = prev_M15_HAOpen >= prev_M15_HAClose ? 1 : 0
+
+H8_HAOpen = request.security(ticker.heikinashi(syminfo.tickerid), '480', open[1])
+H8_HAClose = request.security(ticker.heikinashi(syminfo.tickerid), '480', close[1])
+// Last 8H HA Candle Is Up or Down? Up = 1, Down = 0. Close Should Be Higher Than Open.
+H8_HA_isup = H8_HAOpen <= H8_HAClose ? 1 : 0
+H8_HA_isdown = H8_HAOpen >= H8_HAClose ? 1 : 0
+
+//Calculates the Heikin Ashi RSI value - 50 Length
+H8_HArsi = request.security(syminfo.tickerid, '480', ta.rsi(H8_HAClose, adjusted_length_8H))
+H8_HA_rsi_isup() => H8_HArsi >= 53 // Is RSI above 53?
+H8_HA_rsi_isdown() => H8_HArsi <= 47 // Is RSI below 47?
+H8_HA_rsi_isup = (H8_HA_rsi_isup() ? 1 : 0) // It is above 53 = 1, otherwise 0.
+H8_HA_rsi_isdown = (H8_HA_rsi_isdown() ? 1 : 0) // It is below 47 = 1, otherwise 0.
+
+//Calculates the Heikin Ashi SMA for 8 Hour With 50 Length
+H8_HA_sma50 = request.security(syminfo.tickerid, '480', ta.sma(H8_HAClose, adjusted_length_8H))
+H8_HA_sma_isup() => H8_HAClose <= H8_HA_sma50 // Is Price Above SMA50?
+H8_HA_sma_isdown() => H8_HAClose >= H8_HA_sma50 // Is Price Below SMA50?
+H8_HA_sma_isup = (H8_HA_sma_isup() ? 1 : 0) // It is above = 1, otherwise 0.
+H8_HA_sma_isdown = (H8_HA_sma_isdown() ? 1 : 0) // It is below = 1, otherwise 0.
+
+// BAR COLOR //
+
+//barcolor(bar_color ? H8_HA_rsi_isdown == 1 ? redColor : na : na)
+//barcolor(bar_color ? H8_HA_rsi_isup == 1 ? greenColor : na : na)
+
+//barcolor(bar_color ? H8_HA_isdown == 1 ? redColor : na : na)
+//barcolor(bar_color ? H8_HA_isup == 1 ? greenColor : na : na)
+
+barcolor(bar_color ? (H8_HA_isdown + H8_HA_rsi_isdown) == 2 ? redColor : yellowColor : na)
+barcolor(bar_color ? (H8_HA_isup + H8_HA_rsi_isup) == 2 ? greenColor : yellowColor : na)
+
+// If Last Bar Color Is Red According To What's Above
+Bias_Red = (H8_HA_isdown + H8_HA_rsi_isdown == 2) ? 1 : 0
+M15_Prev_Red = prev_M15_HA_isup == 0 ? 1 : 0
+M15_Red = M15_HA_isup == 0 ? 1 : 0
+// If Last Bar Color Is Green According To What's Above
+Bias_Green = (H8_HA_isup + H8_HA_rsi_isup == 2) ? 1 : 0
+M15_Prev_Green = prev_M15_HA_isup == 1 ? 1 : 0
+M15_Green = M15_HA_isup == 1 ? 1 : 0
+
+// To give xDn Signal, Bar Before Last Must Be Neither Green or Red. Then, Last Bar Must Be Red.
+xDn = Bias_Red == 1 ? M15_Prev_Green == 1 ? M15_Red == 1 ? 1 : na : na : na
+// To give xUp Signal, Bar Before Last Must Be Neither Green or Red. Then, Last Bar Must Be Green.
+xUp = Bias_Green == 1 ? M15_Prev_Red == 1 ? M15_Green == 1 ? 1 : na : na : na
+
+plotchar(xUp, "Long",  "▲", location.belowbar, greenColor, size = size.tiny)
+plotchar(xDn, "Short", "▼", location.abovebar, redColor,  size = size.tiny)
+
+alertcondition(xUp or xDn, "Alert", "{{ticker}} Is On Watch List")
+
+///////////// START OF HIGH & LOW LEVELS /////////////////
+
+//input(defval, title, tooltip, inline, group)
+st = input(false, "Show Todays HL?")
+swt = input(true, "Show This Weeks HL?")
+smh = input(false, "Show Monthly HL?")
+
+//Daily request.security(symbol, timeframe, expression, gaps, lookahead, ignore_invalid_symbol, currency) → series <type>
+Dph = request.security(syminfo.tickerid, '1D', high[0], lookahead = barmerge.lookahead_on)
+Dpl = request.security(syminfo.tickerid, '1D', low[0], lookahead = barmerge.lookahead_on)
+//Weekly
+wph = request.security(syminfo.tickerid, '1W', high[0], lookahead = barmerge.lookahead_on)
+wpl = request.security(syminfo.tickerid, '1W', low[0], lookahead = barmerge.lookahead_on)
+//Monthly
+mph = request.security(syminfo.tickerid, '1M', high[0], lookahead = barmerge.lookahead_on)
+mpl = request.security(syminfo.tickerid, '1M', low[0], lookahead = barmerge.lookahead_on)
+
+
+//Daily Plots plot(series, title, color, linewidth, style, trackprice, histbase, offset, join, editable, show_last, display) → plot
+plot(sDt and Dph ? ph : na, "Daily High", day_isup() ? greenColor : day_isdown() ? redColor : na, 1, plot.style_steplinebr)
+plot(sDt and Dpl ? pl : na, "Daily Low", day_isup() ? redColor : day_isdown() ? greenColor : na, 1, plot.style_steplinebr)
+
+//Weekly Plots
+plot(swt and wph ? wph : na, "Weekly High", week_isup() ? greenColor : week_isdown() ? redColor : na, 2, plot.style_steplinebr)
+plot(swt and wpl ? wpl : na, "Weekly Low", week_isup() ? redColor : week_isdown() ? greenColor : na, 2, plot.style_steplinebr)
+//Monthly Plots
+plot(smh and mph ? mph : na, "Monthly High", month_isup() ? greenColor : month_isdown() ? redColor : na, 3, plot.style_steplinebr)
+plot(smh and mpl ? mpl : na, "Monthly Low", month_isup() ? redColor : month_isdown() ? greenColor : na, 3, plot.style_steplinebr)
+
+///////////// START OF VOLUME PROFILE /////////////////
+
+ma(source, length, type) =>
+    type == "SMA" ? ta.sma(source, length) :
+     type == "EMA" ? ta.ema(source, length) :
+     type == "SMMA (RMA)" ? ta.rma(source, length) :
+     type == "WMA" ? ta.wma(source, length) :
+     type == "VWMA" ? ta.vwma(source, length) :
+     na
+
+show_ma   = input(true   , "MA №1", inline="MA #1")
+ma_type   = input.string("SMA"  , ""     , inline="MA #1", options=["SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA"])
+ma_source = input(close  , ""     , inline="MA #1")
+ma_length = input.int(20     , ""     , inline="MA #1", minval=1)
+ma_color  = input(#f6c309, ""     , inline="MA #1")
+ma = ma(ma_source, ma_length, ma_type)
+plot(show_ma ? ma : na, color = ma_color, title="MA №1")
+

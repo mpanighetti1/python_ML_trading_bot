@@ -1,0 +1,56 @@
+ST_gaps = barmerge.gaps_off
+ST_lookahead = barmerge.lookahead_off
+ST_period = input.int(defval=100, title="SuperTrend Period", maxval=200, step=1)
+ST_src = input(close, title="SuperTrend Source")
+ST_multiplier = input.float(defval=7.5, title="SuperTrend Multiplier", step=0.1)
+showsignals = input.bool(title="Show Buy/Sell Signals ?", defval=true)
+highlighting = input.bool(title="Highlighter On/Off ?", defval=true)
+greenColorTrans = color.new(greenColor, transp=70)
+redColorTrans = color.new(redColor, transp=70)
+
+ST_atr = ta.sma(ta.tr, ST_period)
+HTF_ST_atr = request.security(syminfo.tickerid, HTF_source, ST_atr, gaps=ST_gaps, lookahead=ST_lookahead)
+
+up = ST_src - (ST_multiplier * HTF_ST_atr)
+HTF_up = request.security(syminfo.tickerid, HTF_source, up, gaps=ST_gaps, lookahead=ST_lookahead)
+
+HTF_up1 = nz(HTF_up[1], HTF_up)
+up2 = close[1] > HTF_up1 ? math.max(HTF_up, HTF_up1) : HTF_up
+HTF_up := request.security(syminfo.tickerid, HTF_source, up2, gaps=ST_gaps, lookahead=ST_lookahead)
+
+dn = ST_src + (ST_multiplier * HTF_ST_atr)
+HTF_dn = request.security(syminfo.tickerid, HTF_source, dn, gaps=ST_gaps, lookahead=ST_lookahead)
+
+HTF_dn1 = nz(HTF_dn[1], HTF_dn)
+dn2 = close[1] < HTF_dn1 ? math.min(HTF_dn, HTF_dn1) : HTF_dn
+HTF_dn := request.security(syminfo.tickerid, HTF_source, dn2, gaps=ST_gaps, lookahead=ST_lookahead)
+
+trend = 1
+trend1 = nz(trend[1], trend)
+trend := request.security(syminfo.tickerid, HTF_source, trend1, gaps=ST_gaps, lookahead=ST_lookahead)
+
+trend_dn = close > HTF_dn1
+HTF_trend_dn1 = request.security(syminfo.tickerid, HTF_source, trend_dn, gaps=ST_gaps, lookahead=ST_lookahead)
+
+trend_up = close < HTF_up1
+HTF_trend_up1 = request.security(syminfo.tickerid, HTF_source, trend_up, gaps=ST_gaps, lookahead=ST_lookahead)
+
+trend2 = trend == -1 and HTF_trend_dn1 ? 1 : trend == 1 and HTF_trend_up1 ? -1 : trend
+trend := request.security(syminfo.tickerid, HTF_source, trend2, gaps=ST_gaps, lookahead=ST_lookahead)
+
+upPlot = plot(trend == 1 ? HTF_up : na, title="Up Trend", style=plot.style_linebr, linewidth=2, color=greenColor)
+
+buySignal = trend == 1 and trend[1] == -1
+plotshape(buySignal ? HTF_up : na, title="UpTrend Begins", location=location.absolute, style=shape.circle, size=size.tiny, color=greenColorTrans)
+plotshape(buySignal and showsignals ? HTF_up : na, title="Buy", text="Buy", location=location.absolute, style=shape.labelup, size=size.tiny, color=greenColorTrans, textcolor=whiteColor)
+dnPlot = plot(trend == 1 ? na : HTF_dn, title="Down Trend", style=plot.style_linebr, linewidth=2, color=redColor)
+
+sellSignal = trend == -1 and trend[1] == 1
+plotshape(sellSignal ? HTF_dn : na, title="DownTrend Begins", location=location.absolute, style=shape.circle, size=size.tiny, color=redColorTrans)
+plotshape(sellSignal and showsignals ? HTF_dn : na, title="Sell", text="Sell", location=location.absolute, style=shape.labeldown, size=size.tiny, color=redColorTrans, textcolor=whiteColor)
+HTF_ohlc4 = request.security(syminfo.tickerid, HTF_source, ohlc4, gaps=ST_gaps, lookahead=ST_lookahead)
+mPlot = plot(HTF_ohlc4, title="", style=plot.style_circles, linewidth=0)
+longFillColor = highlighting ? (trend == 1 ? greenColorTrans : whiteColor) : whiteColor
+shortFillColor = highlighting ? (trend == -1 ? redColorTrans : whiteColor) : whiteColor
+fill(mPlot, upPlot, title="UpTrend Highlighter", color=longFillColor)
+fill(mPlot, dnPlot, title="DownTrend Highlighter", color=shortFillColor)

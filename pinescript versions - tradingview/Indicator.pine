@@ -1,0 +1,387 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Trueglory
+
+//@version=5
+indicator("Liquidity Purge Strategy - TG", "TG Inc - LPS _ Indicator", overlay=true)
+
+///////////// COLORS ////////////////////////////
+
+color redColor  = #FF0000
+color greenColor  = #0FFF00
+color yellowColor  = #FFF500
+color blueColor  = #48F0ED
+color darkblueColor  = #000DFF
+color whiteColor  = #FFFFFF
+
+//////////// SOURCES /////////////////////////////
+
+source = input.timeframe('3', title="Source Timeframe")
+HTF_source = input.timeframe('120', title="HTF Timeframe (ST)")
+first_target_length_input = input.int(403, "1st Target Look-Back Length", minval=1, step=1)
+
+//////////// LENGTH CALCULATIONS /////////////////
+
+ATRperiod_input = input.int(470, "ATR Period (Stop-Loss)", minval=1, step=1)
+ATRmultipler_input = input.float(5.1, "ATR Multiplier (Stop-Loss)", minval=1, step=0.1)
+
+//////////// SUPERTREND DIRECTIONAL BIAS ////////////
+
+ST_gaps = barmerge.gaps_off
+ST_lookahead = barmerge.lookahead_off
+ST_period = input.int(defval=180, title="SuperTrend Period", step=1)
+ST_src_input = input(close, title="SuperTrend Source")
+ST_src = request.security(syminfo.tickerid, HTF_source, ST_src_input[1], gaps=ST_gaps, lookahead=ST_lookahead)
+ST_multiplier = input.float(defval=1.6, title="SuperTrend Multiplier", step=0.1)
+highlighting = input.bool(title="Highlighter On/Off ?", defval=true)
+greenColorTrans = color.new(greenColor, transp=70)
+redColorTrans = color.new(redColor, transp=70)
+
+ST_atr = ta.sma(ta.tr, ST_period)
+HTF_ST_atr = request.security(syminfo.tickerid, HTF_source, ST_atr, gaps=ST_gaps, lookahead=ST_lookahead)
+
+up = ST_src - (ST_multiplier * HTF_ST_atr)
+up1 = nz(up[1], up)
+up := ST_src[1] > up1 ? math.max(up, up1) : up
+dn = ST_src + (ST_multiplier * HTF_ST_atr)
+dn1 = nz(dn[1], dn)
+dn := ST_src[1] < dn1 ? math.min(dn, dn1) : dn
+
+trend = 1
+trend := nz(trend[1], trend)
+trend := trend == -1 and ST_src > dn1 ? 1 : trend == 1 and ST_src < up1 ? -1 : trend
+
+//upPlot = plot(trend == 1 ? up : na, title="Up Trend", style=plot.style_linebr, linewidth=2, color=greenColor)
+//buySignal = trend == 1 and trend[1] == -1
+//plotshape(buySignal ? up : na, title="UpTrend Begins", location=location.absolute, style=shape.circle, size=size.tiny, color=greenColorTrans)
+
+//dnPlot = plot(trend == 1 ? na : dn, title="Down Trend", style=plot.style_linebr, linewidth=2, color=redColor)
+//sellSignal = trend == -1 and trend[1] == 1
+//plotshape(sellSignal ? dn : na, title="DownTrend Begins", location=location.absolute, style=shape.circle, size=size.tiny, color=redColorTrans)
+
+//HTF_ohlc4 = request.security(syminfo.tickerid, HTF_source, ohlc4[1], gaps=ST_gaps, lookahead=ST_lookahead)
+//mPlot = plot(HTF_ohlc4, title="", style=plot.style_circles, linewidth=0)
+//longFillColor = highlighting ? (trend == 1 ? greenColorTrans : whiteColor) : whiteColor
+//shortFillColor = highlighting ? (trend == -1 ? redColorTrans : whiteColor) : whiteColor
+//fill(mPlot, upPlot, title="UpTrend Highlighter", color=longFillColor)
+//fill(mPlot, dnPlot, title="DownTrend Highlighter", color=shortFillColor)
+
+//barcolor(prev_trend == 1 ? greenColor : prev_trend == -1 ? redColor : na)
+
+//////////// UP/DOWN DIRECTIONAL BIAS ////////////
+
+bar_color_bias = input(true, "Show Bias Candle Colors")
+
+//green = (HTF_adx[1] < HTF_adx) and (trend == 1) ? 1 : 0
+//red = (HTF_adx[1] < HTF_adx) and (trend == -1) ? 1 : 0
+
+green = (trend == 1) ? 1 : 0
+red = (trend == -1) ? 1 : 0
+
+barcolor(bar_color_bias ? green ? greenColor : red ? redColor : na : na)
+
+//////////// ATR BANDS /////////////////////
+
+atrPeriod = ATRperiod_input
+atrMultiplier = ATRmultipler_input
+atrSourceRef = "close"
+getBandOffsetSource(srcIn, isUpperBand) =>
+    ret = close
+    switch srcIn
+        "close" => ret := close
+        "wicks" => ret := isUpperBand ? high : low
+        => ret := close
+    ret
+atr = ta.atr(atrPeriod)
+scaledATR = atr * atrMultiplier
+upperATRBand = getBandOffsetSource(atrSourceRef, true) + scaledATR
+lowerATRBand = getBandOffsetSource(atrSourceRef, false) - scaledATR
+//plot(upperATRBand, "Upper ATR Band", greenColor, 1, style=plot.style_steplinebr)
+//plot(lowerATRBand, "Lower ATR Band", yellowColor, 3, style=plot.style_steplinebr)
+
+//////////// WILLIAMS FRACTALS ////////////
+
+// Define "n" as the number of periods and keep a minimum value of 2 for error handling.
+n = input.int(title="Fractal Period", defval=2, minval=2)
+show_fractals = input.bool(title="Show Fractals", defval=false)
+
+// UpFractal
+bool upflagDownFrontier = true
+bool upflagUpFrontier0 = true
+bool upflagUpFrontier1 = true
+bool upflagUpFrontier2 = true
+bool upflagUpFrontier3 = true
+bool upflagUpFrontier4 = true
+
+for i = 1 to n
+    upflagDownFrontier := upflagDownFrontier and (high[n-i] < high[n])
+    upflagUpFrontier0 := upflagUpFrontier0 and (high[n+i] < high[n])
+    upflagUpFrontier1 := upflagUpFrontier1 and (high[n+1] <= high[n] and high[n+i + 1] < high[n])
+    upflagUpFrontier2 := upflagUpFrontier2 and (high[n+1] <= high[n] and high[n+2] <= high[n] and high[n+i + 2] < high[n])
+    upflagUpFrontier3 := upflagUpFrontier3 and (high[n+1] <= high[n] and high[n+2] <= high[n] and high[n+3] <= high[n] and high[n+i + 3] < high[n])
+    upflagUpFrontier4 := upflagUpFrontier4 and (high[n+1] <= high[n] and high[n+2] <= high[n] and high[n+3] <= high[n] and high[n+4] <= high[n] and high[n+i + 4] < high[n])
+flagUpFrontier = upflagUpFrontier0 or upflagUpFrontier1 or upflagUpFrontier2 or upflagUpFrontier3 or upflagUpFrontier4
+
+upFractal = (upflagDownFrontier and flagUpFrontier)
+
+// downFractal
+bool downflagDownFrontier = true
+bool downflagUpFrontier0 = true
+bool downflagUpFrontier1 = true
+bool downflagUpFrontier2 = true
+bool downflagUpFrontier3 = true
+bool downflagUpFrontier4 = true
+
+for i = 1 to n
+    downflagDownFrontier := downflagDownFrontier and (low[n-i] > low[n])
+    downflagUpFrontier0 := downflagUpFrontier0 and (low[n+i] > low[n])
+    downflagUpFrontier1 := downflagUpFrontier1 and (low[n+1] >= low[n] and low[n+i + 1] > low[n])
+    downflagUpFrontier2 := downflagUpFrontier2 and (low[n+1] >= low[n] and low[n+2] >= low[n] and low[n+i + 2] > low[n])
+    downflagUpFrontier3 := downflagUpFrontier3 and (low[n+1] >= low[n] and low[n+2] >= low[n] and low[n+3] >= low[n] and low[n+i + 3] > low[n])
+    downflagUpFrontier4 := downflagUpFrontier4 and (low[n+1] >= low[n] and low[n+2] >= low[n] and low[n+3] >= low[n] and low[n+4] >= low[n] and low[n+i + 4] > low[n])
+flagDownFrontier = downflagUpFrontier0 or downflagUpFrontier1 or downflagUpFrontier2 or downflagUpFrontier3 or downflagUpFrontier4
+
+downFractal = (downflagDownFrontier and flagDownFrontier)
+
+plotshape(show_fractals ? downFractal : na, style=shape.xcross, location=location.belowbar, offset=-n, color=greenColor, size = size.tiny)
+plotshape(show_fractals ? upFractal : na, style=shape.xcross,   location=location.abovebar, offset=-n, color=redColor, size = size.tiny)
+
+//////////// PLOT HIGHS AND LOWS /////////
+
+var float short_entry_first = na
+var float short_entry_second = na
+var float short_entry_third = na
+var float short_first_TP = na
+
+var float short_entry_max_value = na
+var float short_entry_mid_value = na
+var float short_entry_min_value = na
+
+var float long_entry_first = na
+var float long_entry_second = na
+var float long_entry_third = na
+var float long_first_TP = na
+
+var float long_entry_max_value = na
+var float long_entry_mid_value = na
+var float long_entry_min_value = na
+
+target_multiple = input.float(0.00009, "Target Multiple", minval=0, step=0.00001)
+
+Dh_offset = request.security(syminfo.tickerid, source, high[n], gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_off)
+Dl_offset = request.security(syminfo.tickerid, source, low[n], gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_off)
+
+highest_of_past_length = ta.highest(high, first_target_length_input)
+lowest_of_past_length = ta.lowest(low, first_target_length_input)
+
+if (upFractal)
+    short_entry_third := short_entry_second
+    short_entry_second := short_entry_first
+    short_entry_first := Dh_offset
+    long_first_TP := highest_of_past_length * (1 + target_multiple)
+
+    if (not na(short_entry_first) and not na(short_entry_second) and not na(short_entry_third))
+        short_entry_max_value := math.max(short_entry_first, math.max(short_entry_second, short_entry_third))
+        short_entry_min_value := math.min(short_entry_first, math.min(short_entry_second, short_entry_third))
+
+        if ((short_entry_max_value == short_entry_third and short_entry_min_value == short_entry_second) or (short_entry_max_value == short_entry_second and short_entry_min_value == short_entry_third))
+            short_entry_mid_value := short_entry_first
+
+        if ((short_entry_max_value == short_entry_first and short_entry_min_value == short_entry_third) or (short_entry_max_value == short_entry_third and short_entry_min_value == short_entry_first))
+            short_entry_mid_value := short_entry_second
+
+        if ((short_entry_max_value == short_entry_first and short_entry_min_value == short_entry_second) or (short_entry_max_value == short_entry_second and short_entry_min_value == short_entry_first))
+            short_entry_mid_value := short_entry_third
+
+if (downFractal)
+    long_entry_third := long_entry_second
+    long_entry_second := long_entry_first
+    long_entry_first := Dl_offset
+    short_first_TP := lowest_of_past_length * (1 - target_multiple)
+
+    if (not na(long_entry_first) and not na(long_entry_second) and not na(long_entry_third))
+        long_entry_max_value := math.max(long_entry_first, math.max(long_entry_second, long_entry_third))
+        long_entry_min_value := math.min(long_entry_first, math.min(long_entry_second, long_entry_third))
+
+        if ((long_entry_max_value == long_entry_third and long_entry_min_value == long_entry_second) or (long_entry_max_value == long_entry_second and long_entry_min_value == long_entry_third))
+            long_entry_mid_value := long_entry_first
+
+        if ((long_entry_max_value == long_entry_first and long_entry_min_value == long_entry_third) or (long_entry_max_value == long_entry_third and long_entry_min_value == long_entry_first))
+            long_entry_mid_value := long_entry_second
+
+        if ((long_entry_max_value == long_entry_first and long_entry_min_value == long_entry_second) or (long_entry_max_value == long_entry_second and long_entry_min_value == long_entry_first))
+            long_entry_mid_value := long_entry_third
+
+/////////////// SHORT STRATEGY PLOTS /////////////////////
+
+// Define start and end times (format: [hour, minute])
+high_spread_start_time = timestamp("GMT-4", year(timenow), month(timenow), dayofmonth(timenow), 16, 45)  // 4:45 PM GMT-4
+high_spread_end_time = timestamp("GMT-4", year(timenow), month(timenow), dayofmonth(timenow), 18, 15)  // 6:15 PM GMT-4
+
+// Check if current bar's time is within trading hours
+high_spread = time >= high_spread_start_time and time <= high_spread_end_time
+
+var bool S1 = false
+var bool S2 = false
+var bool S3 = false
+var bool short_first_TP_activated = false
+var float short_stop_level = 0
+var float short_stop_level1 = 0
+var float short_stop_level2 = 0
+var float short_stop_level3 = 0
+var bool long_any = na
+var bool short_any = na
+
+/////////////// SHORT - ENTRIES ////////////////////
+short_entry_1_condition = not high_spread and (S1 == false) and red and ta.crossover(high, short_entry_min_value)
+plotshape(short_entry_1_condition, style=shape.triangledown, location=location.abovebar, color=whiteColor, size = size.tiny)
+plotshape(high_spread and (S1 == false) and red and ta.crossover(high, short_entry_min_value), style=shape.xcross, location=location.abovebar, color=whiteColor, size = size.tiny, text="high spread", textcolor=whiteColor)
+alertcondition(short_entry_1_condition, title='Short Entry 1', message='a=OANDAMAIN b=short close=0 e=oanda q=3000 s=EUR_USD t=market')
+if (short_entry_1_condition)
+    /////// SHORT ENTRY ORDER 1 GOES HERE //////////
+    short_stop_level1 := upperATRBand
+    short_stop_level := math.max(short_stop_level1, math.max(short_stop_level2, short_stop_level3))
+    short_first_TP_activated := true
+    S1 := true
+
+short_entry_2_condition = not high_spread and (S2 == false) and red and ta.crossover(high, short_entry_mid_value)
+plotshape(short_entry_2_condition, style=shape.triangledown, location=location.abovebar, color=yellowColor, size = size.tiny)
+plotshape(high_spread and (S2 == false) and red and ta.crossover(high, short_entry_mid_value), style=shape.xcross, location=location.abovebar, color=yellowColor, size = size.tiny, text="high spread", textcolor=whiteColor)
+alertcondition(short_entry_2_condition, title='Short Entry 2', message='a=OANDAMAIN b=short close=0 e=oanda q=3000 s=EUR_USD t=market')
+if (short_entry_2_condition)
+    /////// SHORT ENTRY ORDER 2 GOES HERE //////////
+    short_stop_level2 := upperATRBand
+    short_stop_level := math.max(short_stop_level1, math.max(short_stop_level2, short_stop_level3))
+    short_first_TP_activated := true
+    S2 := true
+
+short_entry_3_condition = not high_spread and (S3 == false) and red and ta.crossover(high, short_entry_max_value)
+plotshape(short_entry_3_condition, style=shape.triangledown, location=location.abovebar, color=greenColor, size = size.tiny)
+plotshape(high_spread and (S3 == false) and red and ta.crossover(high, short_entry_max_value), style=shape.xcross, location=location.abovebar, color=greenColor, size = size.tiny, text="high spread", textcolor=whiteColor)
+alertcondition(short_entry_3_condition, title='Short Entry 3', message='a=OANDAMAIN b=short close=0 e=oanda q=3000 s=EUR_USD t=market')
+if (short_entry_3_condition)
+    /////// SHORT ENTRY ORDER 3 GOES HERE //////////
+    short_stop_level3 := upperATRBand
+    short_stop_level := math.max(short_stop_level1, math.max(short_stop_level2, short_stop_level3))
+    short_first_TP_activated := true
+    S3 := true
+
+/////////////// SHORT - STOP LOSS //////////////////
+
+short_any := (S3 or S2 or S1)
+short_stop_condition = not high_spread and short_any and ta.crossover(high, short_stop_level)
+plot(short_any ? short_stop_level : na, "Short Stop Level", redColor, 3, style=plot.style_steplinebr)
+plotshape(short_stop_condition, style=shape.triangledown, location=location.abovebar, color=redColor, size = size.tiny)
+plotshape(high_spread and short_any and ta.crossover(high, short_stop_level), style=shape.xcross, location=location.abovebar, color=redColor, size = size.tiny, text="high spread", textcolor=whiteColor)
+alertcondition(short_stop_condition, title='Short Stop Level', message='a=OANDAMAIN c=position e=oanda s=EUR_USD t=market')
+if (short_stop_condition)
+    /////// SHORT STOP-LOSS ORDER GOES HERE //////////
+    S1 := false
+    S2 := false
+    S3 := false
+    short_first_TP_activated := false
+    short_stop_level1 := 0
+    short_stop_level2 := 0
+    short_stop_level3 := 0    
+
+/////////////// SHORT - TAKE PROFIT ////////////////
+short_take_profit_condition = not high_spread and short_first_TP_activated and short_any and ta.crossunder(low, short_first_TP)
+plotshape(short_take_profit_condition, style=shape.triangledown, location=location.abovebar, color=blueColor, size = size.tiny)
+plotshape(high_spread and short_first_TP_activated and short_any and ta.crossunder(low, short_first_TP), style=shape.xcross, location=location.abovebar, color=blueColor, size = size.tiny, text="high spread", textcolor=whiteColor)
+alertcondition(short_take_profit_condition, title='Short Take Profit', message='a=OANDAMAIN c=position e=oanda s=EUR_USD t=market')
+if (short_take_profit_condition)
+    /////// SHORT TAKE PROFIT ORDER GOES HERE //////////
+    short_first_TP_activated := false
+    S1 := false
+    S2 := false
+    S3 := false
+    short_stop_level1 := 0
+    short_stop_level2 := 0
+    short_stop_level3 := 0
+
+plot(not S1 and red ? short_entry_min_value : na, "1st Highest", whiteColor, 1, style=plot.style_steplinebr)
+plot(not S2 and red ? short_entry_mid_value : na, "2nd Highest", yellowColor, 1, style=plot.style_steplinebr)
+plot(not S3 and red ? short_entry_max_value : na, "3rd Highest", greenColor, 1, style=plot.style_steplinebr)
+plot(short_any ? short_first_TP : na, "First Short Exit", blueColor, 1, style=plot.style_steplinebr)
+
+/////////////// LONG STRATEGY PLOTS /////////////////////
+
+var bool L1 = false
+var bool L2 = false
+var bool L3 = false
+var bool long_first_TP_activated = false
+var float long_stop_level = 0
+var float long_stop_level1 = 1e20
+var float long_stop_level2 = 1e20
+var float long_stop_level3 = 1e20
+
+/////////////// LONG - ENTRIES ////////////////////
+long_entry_1_condition = not high_spread and (L1 == false) and green and ta.crossunder(low, long_entry_max_value)
+plotshape(long_entry_1_condition, style=shape.triangleup, location=location.belowbar, color=whiteColor, size = size.tiny)
+plotshape(high_spread and (L1 == false) and green and ta.crossunder(low, long_entry_max_value), style=shape.xcross, location=location.belowbar, color=whiteColor, size = size.tiny, text="high spread", textcolor=whiteColor)
+alertcondition(long_entry_1_condition, title='Long Entry 1', message='a=OANDAMAIN b=long close=0 e=oanda q=3000 s=EUR_USD t=market')
+if (long_entry_1_condition)
+    /////// LONG ENTRY ORDER 1 GOES HERE //////////
+    long_stop_level1 := lowerATRBand
+    long_stop_level := math.min(long_stop_level1, math.min(long_stop_level2, long_stop_level3))
+    long_first_TP_activated := true
+    L1 := true   
+
+long_entry_2_condition = not high_spread and (L2 == false) and green and ta.crossunder(low, long_entry_mid_value)
+plotshape(long_entry_2_condition, style=shape.triangleup, location=location.belowbar, color=yellowColor, size = size.tiny)
+plotshape(high_spread and (L2 == false) and green and ta.crossunder(low, long_entry_mid_value), style=shape.xcross, location=location.belowbar, color=yellowColor, size = size.tiny, text="high spread", textcolor=whiteColor)
+alertcondition(long_entry_2_condition, title='Long Entry 2', message='a=OANDAMAIN b=long close=0 e=oanda q=3000 s=EUR_USD t=market')
+if (long_entry_2_condition)
+    /////// LONG ENTRY ORDER 2 GOES HERE //////////
+    long_stop_level2 := lowerATRBand
+    long_stop_level := math.min(long_stop_level1, math.min(long_stop_level2, long_stop_level3))
+    long_first_TP_activated := true
+    L2 := true
+
+long_entry_3_condition = not high_spread and (L3 == false) and green and ta.crossunder(low, long_entry_min_value)
+plotshape(long_entry_3_condition, style=shape.triangleup, location=location.belowbar, color=greenColor, size = size.tiny)
+plotshape(high_spread and (L3 == false) and green and ta.crossunder(low, long_entry_min_value), style=shape.xcross, location=location.belowbar, color=greenColor, size = size.tiny, text="high spread", textcolor=whiteColor)
+alertcondition(long_entry_3_condition, title='Long Entry 3', message='a=OANDAMAIN b=long close=0 e=oanda q=3000 s=EUR_USD t=market')
+if (long_entry_3_condition)
+    /////// LONG ENTRY ORDER 3 GOES HERE //////////
+    long_stop_level3 := lowerATRBand
+    long_stop_level := math.min(long_stop_level1, math.min(long_stop_level2, long_stop_level3))
+    long_first_TP_activated := true
+    L3 := true
+
+/////////////// LONG - STOP LOSS //////////////////
+
+long_any := (L3 or L2 or L1)
+long_stop_condition = not high_spread and long_any and ta.crossunder(low, long_stop_level)
+plot(long_any ? long_stop_level : na, "Long Stop Level", redColor, 3, style=plot.style_steplinebr)
+plotshape(long_stop_condition, style=shape.triangleup, location=location.belowbar, color=redColor, size = size.tiny)
+plotshape(high_spread and long_any and ta.crossunder(low, long_stop_level), style=shape.xcross, location=location.belowbar, color=redColor, size = size.tiny, text="high spread", textcolor=whiteColor)
+alertcondition(long_stop_condition, title='Long Stop Level', message='a=OANDAMAIN c=position e=oanda s=EUR_USD t=market')
+if (long_stop_condition)
+    /////// LONG STOP-LOSS ORDER GOES HERE //////////
+    L1 := false
+    L2 := false
+    L3 := false
+    long_first_TP_activated := false
+    long_stop_level1 := 1e20
+    long_stop_level2 := 1e20
+    long_stop_level3 := 1e20    
+
+/////////////// LONG - TAKE PROFIT ////////////////
+long_take_profit_condition = not high_spread and long_first_TP_activated and long_any and ta.crossover(high, long_first_TP)
+plotshape(long_take_profit_condition, style=shape.triangleup, location=location.belowbar, color=blueColor, size = size.tiny)
+plotshape(high_spread and long_first_TP_activated and long_any and ta.crossover(high, long_first_TP), style=shape.xcross, location=location.belowbar, color=blueColor, size = size.tiny, text="high spread", textcolor=whiteColor)
+alertcondition(long_take_profit_condition, title='Long Take Profit', message='a=OANDAMAIN c=position e=oanda s=EUR_USD t=market')
+if (long_take_profit_condition)
+    /////// LONG TAKE PROFIT ORDER GOES HERE //////////
+    long_first_TP_activated := false
+    L1 := false
+    L2 := false
+    L3 := false
+    long_stop_level1 := 1e20
+    long_stop_level2 := 1e20
+    long_stop_level3 := 1e20
+
+plot(not L1 and green ? long_entry_max_value : na, "1st Lowest", whiteColor, 1, style=plot.style_steplinebr)
+plot(not L2 and green ? long_entry_mid_value : na, "2nd Lowest", yellowColor, 1, style=plot.style_steplinebr)
+plot(not L3 and green ? long_entry_min_value : na, "3rd Lowest", greenColor, 1, style=plot.style_steplinebr)
+plot(green ? long_first_TP : na, "First Long Exit", blueColor, 1, style=plot.style_steplinebr)

@@ -1,0 +1,98 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Trueglory
+
+//@version=5
+indicator("SuperTrend Directional Bias", "TG Inc - SuperTrend", overlay=true)
+
+///////////// COLORS ////////////////////////////
+
+color redColor  = input(#FF0000, "Red Color")
+color greenColor  = input(#0FFF00, "Green Color")
+color yellowColor  = input(#FFF500, "Yellow Color")
+color blueColor  = input(#48F0ED, "Blue Color")
+color whiteColor  = input(#FFFFFF, "White Color")
+
+//////////// INPUT /////////////////////////////
+
+HTF_source = input.timeframe('270', title="HTF Timeframe")
+ST_period = input.int(defval=180, title="SuperTrend Period", step=10)
+ST_src_input = input(close, title="SuperTrend Source")
+ST_multiplier = input.float(defval=12.4, title="SuperTrend Multiplier", step=1.0)
+highlighting = input.bool(title="Highlighter On/Off ?", defval=true)
+bar_color_bias = input(true, "Show Bias Candle Colors")
+
+//////////// SUPERTREND DIRECTIONAL BIAS ////////////
+
+ST_gaps = barmerge.gaps_off
+ST_lookahead = barmerge.lookahead_off
+ST_src = request.security(syminfo.tickerid, HTF_source, ST_src_input, gaps=ST_gaps, lookahead=ST_lookahead)
+greenColorTrans = color.new(greenColor, transp=70)
+redColorTrans = color.new(redColor, transp=70)
+
+ST_atr = ta.sma(ta.tr, ST_period)
+HTF_ST_atr = request.security(syminfo.tickerid, HTF_source, ST_atr, gaps=ST_gaps, lookahead=ST_lookahead)
+
+up = ST_src - (ST_multiplier * HTF_ST_atr)
+up1 = nz(up[1], up)
+up := ST_src[1] > up1 ? math.max(up, up1) : up
+dn = ST_src + (ST_multiplier * HTF_ST_atr)
+dn1 = nz(dn[1], dn)
+dn := ST_src[1] < dn1 ? math.min(dn, dn1) : dn
+
+trend = 1
+trend := nz(trend[1], trend)
+trend := trend == -1 and ST_src > dn1 ? 1 : trend == 1 and ST_src < up1 ? -1 : trend
+
+//////////// SUPERTREND PLOTTING ////////////
+
+upPlot = plot(trend == 1 ? up : na, title="Up Trend", style=plot.style_linebr, linewidth=2, color=greenColor)
+buySignal = trend == 1 and trend[1] == -1
+plotshape(buySignal ? up : na, title="UpTrend Begins", location=location.absolute, style=shape.circle, size=size.tiny, color=greenColorTrans)
+
+dnPlot = plot(trend == 1 ? na : dn, title="Down Trend", style=plot.style_linebr, linewidth=2, color=redColor)
+sellSignal = trend == -1 and trend[1] == 1
+plotshape(sellSignal ? dn : na, title="DownTrend Begins", location=location.absolute, style=shape.circle, size=size.tiny, color=redColorTrans)
+
+HTF_ohlc4 = request.security(syminfo.tickerid, HTF_source, ohlc4[1], gaps=ST_gaps, lookahead=ST_lookahead)
+mPlot = plot(HTF_ohlc4, title="", style=plot.style_circles, linewidth=0)
+longFillColor = highlighting ? (trend == 1 ? greenColorTrans : na) : na
+shortFillColor = highlighting ? (trend == -1 ? redColorTrans : na) : na
+fill(mPlot, upPlot, title="UpTrend Highlighter", color=longFillColor)
+fill(mPlot, dnPlot, title="DownTrend Highlighter", color=shortFillColor)
+
+//barcolor(prev_trend == 1 ? greenColor : prev_trend == -1 ? redColor : na)
+
+//////////// UP/DOWN DIRECTIONAL BIAS ////////////
+
+green = (trend == 1) ? 1 : 0
+red = (trend == -1) ? 1 : 0
+
+barcolor(bar_color_bias ? green ? greenColor : red ? redColor : na : na)
+
+//////////// ACCURACY RATING ////////////
+
+source_isup = close[1] <= close
+source_isdown = close[1] >= close
+
+var float accuracy = 0.50
+var int same_count = 0
+var int different_count = 0
+
+same = (green[1] and source_isup) or (red[1] and source_isdown) ? 1 : 0
+plotchar(same, "same", "", location=location.top)
+
+same_count += (green[1] and source_isup) or (red[1] and source_isdown) ? 1 : 0
+plotchar(same_count, "same_count", "", location=location.top)
+
+different = (green[1] and source_isdown) or (red[1] and source_isup) ? 1 : 0
+plotchar(different, "different", "", location=location.top)
+
+different_count += (green[1] and source_isdown) or (red[1] and source_isup) ? 1 : 0
+plotchar(different_count, "different_count", "", location=location.top)
+
+total_bars = same_count + different_count
+plotchar(total_bars, "total_bars", "", location=location.top)
+
+accuracy := same_count / total_bars
+plotchar(accuracy, "accuracy", "", location=location.top)
+

@@ -1,0 +1,64 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Trueglory
+
+//@version=5
+indicator("Directional Bias Tester", "TG Inc - DBT - RSI", overlay=true)
+
+///////////// COLORS ////////////////////////////
+
+color redColor  = input(#FF0000, "Red Color")
+color greenColor  = input(#0FFF00, "Green Color")
+color yellowColor  = input(#FFF500, "Yellow Color")
+color blueColor  = input(#48F0ED, "Blue Color")
+color whiteColor  = input(#FFFFFF, "White Color")
+
+//////////// INPUTS /////////////////////////////
+
+source_input = input.timeframe("1440", title="Source Timeframe")
+length_input = input.int(30, "Length", minval=1, step=10)
+upper = input.int(50, "Upper", minval=1)
+lower = input.int(50, "Lower", minval=1)
+bar_color_bias = input(true, "Show Bias Candle Colors")
+
+//////////// RSI CALCULATIONS /////////////////
+
+source_rsi = request.security(syminfo.tickerid, source_input, ta.rsi(close, length_input), barmerge.gaps_off, barmerge.lookahead_off)
+source_rsi_isup() => source_rsi >= upper // Is RSI above upper?
+source_rsi_isdown() => source_rsi <= lower // Is RSI below lower?
+source_rsi_isup = source_rsi_isup() ? 1 : 0 // It is above 50 = 1, otherwise 0.
+source_rsi_isdown = source_rsi_isdown() ? 1 : 0 // It is below 50 = 1, otherwise 0.
+
+source_normal = request.security(syminfo.tickerid, source_input, close, barmerge.gaps_off, barmerge.lookahead_off)
+
+//////////// UP/DOWN DIRECTIONAL BIAS ////////////
+
+green = source_rsi_isup[1]
+plotchar(green, "source_rsi_isup[1] (green)", "", location=location.top)
+plotchar(source_rsi_isup, "source_rsi_isup", "", location=location.top)
+normal_up = source_normal[1] <= source_normal ? 1 : 0
+red = source_rsi_isdown[1]
+plotchar(red, "source_rsi_isdown[1] (red)", "", location=location.top)
+plotchar(source_rsi_isdown, "source_rsi_isdown", "", location=location.top)
+normal_down = source_normal[1] >= source_normal ? 1 : 0
+plotchar(normal_up, "normal_up", "", location=location.top)
+plotchar(normal_down, "normal_down", "", location=location.top)
+
+barcolor(bar_color_bias ? green ? greenColor : red ? redColor : na : na)
+
+//////////// ACCURACY RATING ////////////
+
+var float accuracy = 0.50
+var int same_count = 0
+var int different_count = 0
+
+same_count += (green and normal_up) or (red and normal_down) ? 1 : 0
+plotchar(same_count, "same_count", "", location=location.top)
+
+different_count += (red and normal_up) or (green and normal_down) ? 1 : 0
+plotchar(different_count, "different_count", "", location=location.top)
+
+total_bars = same_count + different_count
+plotchar(total_bars, "total_bars", "", location=location.top)
+
+accuracy := same_count / total_bars
+plotchar(accuracy, "accuracy", "", location=location.top)
